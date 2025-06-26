@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleChatBot</title>
+    <!--
+        Tailwind CSS CDN for rapid prototyping and minimalist styling.
+        This aligns with the "incredibly simple" and "holy-grail-evolved" principles
+        by providing a clean, utility-first approach without a complex build setup.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /*
+            Custom CSS for specific layout adjustments not easily done purely with Tailwind,
+            or to override/fine-tune Tailwind defaults.
+        */
+        body {
+            /* Full viewport height and simple background for the whole page */
+            min-height: 100vh;
+            background-color: #f0f2f5; /* Light grey background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern, clean font */
+        }
+
+        /* Main chat container styling */
+        #chat-app {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 480px; /* Max width for chat interface on larger screens */
+            height: 90vh; /* Occupy 90% of viewport height */
+            max-height: 700px; /* Max height to prevent excessive stretching on very tall screens */
+            background-color: white;
+            border-radius: 12px; /* Rounded corners for a friendly look */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            overflow: hidden; /* Ensures rounded corners are respected */
+        }
+
+        /* Chat messages display area */
+        #chat-container {
+            flex-grow: 1; /* Allows it to take up available space */
+            overflow-y: auto; /* Enables scrolling for chat history */
+            padding: 16px;
+            display: flex;
+            flex-direction: column; /* Stacks messages vertically */
+            gap: 8px; /* Space between messages */
+            background-color: #e9ecef; /* Slightly darker background for chat area */
+            scroll-behavior: smooth; /* Smooth scrolling to new messages */
+        }
+
+        /* Base style for individual message bubbles */
+        .message {
+            padding: 10px 14px;
+            border-radius: 18px; /* More rounded corners for bubbles */
+            max-width: 80%; /* Messages won't take full width, allowing for alignment */
+            word-wrap: break-word; /* Prevents long words from overflowing */
+            line-height: 1.4;
+        }
+
+        /* Styling for user's messages */
+        .user-message {
+            background-color: #007bff; /* Primary blue for user messages */
+            color: white;
+            align-self: flex-end; /* Aligns to the right */
+            margin-left: auto; /* Pushes to the right */
+            border-bottom-right-radius: 4px; /* Slightly less rounded on the bottom-right for user */
+        }
+
+        /* Styling for bot's replies */
+        .bot-message {
+            background-color: #f8f9fa; /* Light grey for bot messages */
+            color: #343a40; /* Darker text for readability */
+            align-self: flex-start; /* Aligns to the left */
+            margin-right: auto; /* Pushes to the left */
+            border-bottom-left-radius: 4px; /* Slightly less rounded on the bottom-left for bot */
+        }
+
+        /* Styling for error messages from the bot */
+        .bot-error {
+            background-color: #dc3545; /* Red for errors */
+            color: white;
+            align-self: flex-start;
+            margin-right: auto;
+            font-weight: bold;
+        }
+
+        /* Input area styling */
+        #input-area {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid #dee2e6; /* Separator line */
+            background-color: white;
+            gap: 10px; /* Space between input and button */
+        }
+
+        /* Message input field styling */
+        #user-input {
+            flex-grow: 1; /* Takes up most of the space */
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 25px; /* Pill-shaped input field */
+            outline: none; /* Remove default focus outline */
+            transition: border-color 0.2s, box-shadow 0.2s; /* Smooth transition for focus */
+        }
+
+        #user-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* Focus glow */
+        }
+
+        /* Send button styling */
+        #send-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px; /* Pill-shaped button */
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s; /* Smooth hover and click effects */
+        }
+
+        #send-button:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+        }
+
+        #send-button:active {
+            transform: translateY(1px); /* Slight press effect on click */
+        }
+
+        #send-button:disabled {
+            background-color: #a0c6ed; /* Lighter blue when disabled */
+            cursor: not-allowed;
+        }
+
+        /* Loading indicator styling */
+        #loading-indicator {
+            text-align: center;
+            padding: 8px;
+            font-style: italic;
+            color: #6c757d; /* Muted grey for text */
+            font-size: 0.9em;
+            display: none; /* Hidden by default, shown by JS */
+        }
+    </style>
+</head>
+<body>
+    <!--
+        Main application container.
+        Tailwind classes are used here for basic layout and responsiveness.
+    -->
+    <div id="chat-app" class="flex flex-col w-full max-w-md h-[90vh] max-h-[700px] bg-white shadow-lg rounded-lg overflow-hidden">
+
+        <!-- Chat Container: Displays all messages -->
+        <div id="chat-container" class="flex-grow overflow-y-auto p-4 bg-gray-100 flex flex-col gap-2">
+            <!-- Messages will be dynamically added here by JavaScript -->
+        </div>
+
+        <!-- Loading Indicator: Shown when the bot is processing a message -->
+        <div id="loading-indicator" class="text-center p-2 text-gray-500 italic hidden">
+            Bot is thinking...
+        </div>
+
+        <!-- Input Area: Contains the message input field and send button -->
+        <div id="input-area" class="flex p-4 border-t border-gray-200 bg-white gap-2">
+            <!-- Message Input Field -->
+            <input
+                type="text"
+                id="user-input"
+                placeholder="Type your message here..."
+                class="flex-grow p-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Message input"
+            >
+            <!-- Send Button -->
+            <button
+                id="send-button"
+                class="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+                Send
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Get references to the DOM elements
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const chatContainer = document.getElementById('chat-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        /**
+         * Appends a new message bubble to the chat container.
+         * @param {string} text - The content of the message.
+         * @param {'user' | 'bot' | 'bot error'} sender - The sender type to apply specific styling.
+         */
+        function appendMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            // Add base 'message' class and a sender-specific class for styling
+            messageDiv.classList.add('message', `${sender}-message`);
+            messageDiv.textContent = text; // Set the message text
+            chatContainer.appendChild(messageDiv); // Add the message to the chat container
+            // Scroll to the bottom to show the latest message
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        /**
+         * Handles sending a message to the backend API.
+         * This function is asynchronous as it makes a network request.
+         */
+        async function sendMessage() {
+            const message = userInput.value.trim(); // Get message and remove leading/trailing whitespace
+
+            // If message is empty, do nothing
+            if (!message) {
+                return;
+            }
+
+            // --- Frontend UI Update: Display User's Message Immediately ---
+            appendMessage(message, 'user'); // Show user's message
+            userInput.value = ''; // Clear the input field
+            sendButton.disabled = true; // Disable button to prevent multiple sends
+            loadingIndicator.style.display = 'block'; // Show loading indicator
+
+            try {
+                // --- API Call to Backend ---
+                // Using Fetch API for making the POST request.
+                // The relative path '/api/chat' works seamlessly with Netlify Functions
+                // because Netlify automatically proxies requests to the function.
+                const response = await fetch('/api/chat', {
+                    method: 'POST', // Specify POST method
+                    headers: {
+                        'Content-Type': 'application/json', // Indicate JSON body
+                    },
+                    body: JSON.stringify({ message: message }), // Convert message object to JSON string
+                });
+
+                const data = await response.json(); // Parse the JSON response from the backend
+
+                // --- Frontend UI Update: Display Bot's Response or Error ---
+                if (response.ok) { // Check if the HTTP status code is 2xx (success)
+                    appendMessage(data.reply, 'bot'); // Display bot's reply
+                } else {
+                    // Handle API errors (e.g., 400 Bad Request, 500 Internal Server Error)
+                    // Display the error message from the backend, or a generic one if not provided
+                    appendMessage(`Error: ${data.error || 'Failed to get a response.'}`, 'bot error');
+                }
+            } catch (error) {
+                // --- Frontend UI Update: Handle Network Errors ---
+                // Catch network-related errors (e.g., no internet, server unreachable)
+                console.error('Network error:', error);
+                appendMessage('Network error: Could not connect to the bot. Please try again.', 'bot error');
+            } finally {
+                // --- Final UI Cleanup ---
+                // This block always executes, regardless of success or error
+                sendButton.disabled = false; // Re-enable the send button
+                loadingIndicator.style.display = 'none'; // Hide loading indicator
+                userInput.focus(); // Put focus back on the input field for easy typing
+                chatContainer.scrollTop = chatContainer.scrollHeight; // Ensure scroll to bottom
+            }
+        }
+
+        // --- Event Listeners ---
+        // 1. Send button click
+        sendButton.addEventListener('click', sendMessage);
+
+        // 2. Enter key press in the input field
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage(); // Trigger sendMessage function on Enter key
+            }
+        });
+
+        // --- Initial Bot Message on Load ---
+        // Provides a welcoming message when the user first opens the chat.
+        window.addEventListener('load', () => {
+            appendMessage("Hello! I'm a simple chatbot. Type something to start.", 'bot');
+        });
+    </script>
+
+    <div style="position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:white;padding:5px 10px;border-radius:5px;font-family:sans-serif;font-size:12px">
+        Created by Dakota Rain Lock, powered by Holy Grail. A Dakota Rain Lock Invention.
+    </div>
+    
+</body>
+</html>
